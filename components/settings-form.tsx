@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MAJOR_SUBJECTS, MINOR_SUBJECTS, LEVELS, type Settings, type Subject } from "@/lib/types";
+import { ConfirmDialog } from "./confirm-dialog";
 import { applyTheme } from "./theme";
 
 export function SettingsForm({
@@ -19,7 +20,7 @@ export function SettingsForm({
   const [oldPw, setOldPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [aiKey, setAiKey] = useState("");
-  const [confirmName, setConfirmName] = useState("");
+  const [dialog, setDialog] = useState<null | "clear" | "delete">(null);
   const [msg, setMsg] = useState("");
 
   async function save(partial: Partial<Settings> & { user_ai_api_key?: string | null } = {}) {
@@ -48,7 +49,7 @@ export function SettingsForm({
         <h3>A. 账号信息</h3>
         <p>用户名：{user.username}</p>
         <p className="muted">创建于 {user.created_at?.slice(0, 10)}</p>
-        <div className="row" style={{ marginTop: 8 }}>
+        <div className="row mt-sm">
           <input className="input" type="password" placeholder="原密码" value={oldPw} onChange={(e) => setOldPw(e.target.value)} />
           <input className="input" type="password" placeholder="新密码" value={newPw} onChange={(e) => setNewPw(e.target.value)} />
           <button
@@ -83,7 +84,7 @@ export function SettingsForm({
             </button>
           ))}
         </div>
-        <p className="muted" style={{ marginTop: 8 }}>
+        <p className="muted mt-sm">
           已选 {s.enabled_minor_subjects.length}/3，切换后旧数据保留但隐藏。
         </p>
       </section>
@@ -135,7 +136,7 @@ export function SettingsForm({
           </label>
         </div>
         {([...MAJOR_SUBJECTS, ...s.enabled_minor_subjects] as Subject[]).map((sub) => (
-          <div className="row" key={sub} style={{ marginTop: 8 }}>
+          <div className="row mt-sm" key={sub}>
             <span style={{ width: 48 }}>{sub}</span>
             <input
               className="input"
@@ -312,7 +313,7 @@ export function SettingsForm({
             />
           </label>
         </div>
-        <div className="row" style={{ marginTop: 8 }}>
+        <div className="row mt-sm">
           <label>
             <input
               type="checkbox"
@@ -338,31 +339,33 @@ export function SettingsForm({
 
       <section className="card">
         <h3>J. AI 设置</h3>
-        <label>
-          自定义端点
-          <input
-            className="input"
-            value={s.user_ai.endpoint ?? ""}
-            onChange={(e) => setS({ ...s, user_ai: { ...s.user_ai, endpoint: e.target.value } })}
-            placeholder="默认 Agnes"
-          />
-        </label>
-        <label>
-          自定义 Key（加密存储）
-          <input className="input" value={aiKey} onChange={(e) => setAiKey(e.target.value)} placeholder={settings.user_ai && (settings as { user_ai?: { has_key?: boolean } }).user_ai?.has_key ? "已配置，留空保持" : "可选"} />
-        </label>
-        <label>
-          温度 {s.ai_temperature}
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.1}
-            value={s.ai_temperature}
-            onChange={(e) => setS({ ...s, ai_temperature: Number(e.target.value) })}
-          />
-        </label>
-        <label>
+        <div className="fields">
+          <label>
+            自定义端点
+            <input
+              className="input"
+              value={s.user_ai.endpoint ?? ""}
+              onChange={(e) => setS({ ...s, user_ai: { ...s.user_ai, endpoint: e.target.value } })}
+              placeholder="默认 Agnes"
+            />
+          </label>
+          <label>
+            自定义 Key（加密存储）
+            <input className="input" value={aiKey} onChange={(e) => setAiKey(e.target.value)} placeholder={settings.user_ai && (settings as { user_ai?: { has_key?: boolean } }).user_ai?.has_key ? "已配置，留空保持" : "可选"} />
+          </label>
+          <label>
+            温度 {s.ai_temperature}
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.1}
+              value={s.ai_temperature}
+              onChange={(e) => setS({ ...s, ai_temperature: Number(e.target.value) })}
+            />
+          </label>
+        </div>
+        <label className="mt-sm">
           <input type="checkbox" checked={s.ai_auto_summary} onChange={(e) => setS({ ...s, ai_auto_summary: e.target.checked })} />{" "}
           新数据后自动摘要
         </label>
@@ -383,39 +386,49 @@ export function SettingsForm({
       <section className="card danger-zone">
         <h3>G. 危险区</h3>
         <div className="row">
-          <button
-            className="btn danger"
-            type="button"
-            onClick={async () => {
-              if (!confirm("确认清空所有考试数据？")) return;
-              await fetch("/api/account", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "clear" }),
-              });
-              router.refresh();
-            }}
-          >
+          <button className="btn danger" type="button" onClick={() => setDialog("clear")}>
             清空考试数据
           </button>
-        </div>
-        <div className="row" style={{ marginTop: 8 }}>
-          <input className="input" placeholder="输入用户名确认删除账号" value={confirmName} onChange={(e) => setConfirmName(e.target.value)} />
-          <button
-            className="btn danger"
-            type="button"
-            onClick={async () => {
-              await fetch("/api/account", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "delete", username: confirmName }),
-              });
-              router.push("/register");
-            }}
-          >
+          <button className="btn danger" type="button" onClick={() => setDialog("delete")}>
             删除账号
           </button>
         </div>
+        <ConfirmDialog
+          open={dialog === "clear"}
+          username={user.username}
+          title="清空考试数据"
+          description={`将永久删除全部 ${status.examCount} 条考试记录，此操作不可恢复。`}
+          confirmLabel="确认清空"
+          onConfirm={async () => {
+            setDialog(null);
+            const res = await fetch("/api/account", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "clear" }),
+            });
+            setMsg(res.ok ? "已清空考试数据" : "清空失败");
+            router.refresh();
+          }}
+          onCancel={() => setDialog(null)}
+        />
+        <ConfirmDialog
+          open={dialog === "delete"}
+          username={user.username}
+          title="删除账号"
+          description="将永久删除账号及全部数据（考试、笔记、图片），并退出登录，此操作不可恢复。"
+          confirmLabel="确认删除"
+          onConfirm={async () => {
+            setDialog(null);
+            const res = await fetch("/api/account", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "delete", username: user.username }),
+            });
+            if (res.ok) router.push("/register");
+            else setMsg("删除失败");
+          }}
+          onCancel={() => setDialog(null)}
+        />
       </section>
     </div>
   );

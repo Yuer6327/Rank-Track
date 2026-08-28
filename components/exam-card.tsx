@@ -69,7 +69,7 @@ export function ExamCard({
           })}
         </div>
       ) : null}
-      <button className="btn ghost" type="button" onClick={() => setOpen((v) => !v)}>
+      <button className="btn ghost mt-sm" type="button" onClick={() => setOpen((v) => !v)}>
         {open ? "收起" : "展开各科"}
       </button>
     </article>

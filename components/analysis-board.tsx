@@ -70,7 +70,7 @@ export function AnalysisBoard({ analysis }: { analysis: RuleAnalysis }) {
           </button>
         ))}
         {scatter ? (
-          <div style={{ height: 220, marginTop: 8 }}>
+          <div className="mt-sm" style={{ height: 220 }}>
             <p className="muted">{scatter} 排名 vs 总分排名</p>
             <ResponsiveContainer>
               <ScatterChart>
@@ -103,7 +103,7 @@ export function AnalysisBoard({ analysis }: { analysis: RuleAnalysis }) {
         <h3>距离目标总览</h3>
         {analysis.goals.length ? (
           analysis.goals.map((g) => (
-            <div key={g.key} style={{ marginBottom: 10 }}>
+            <div key={g.key} style={{ marginBottom: 8 }}>
               <div className="kpi">
                 <span>{g.label}</span>
                 <span>{g.gapText}</span>

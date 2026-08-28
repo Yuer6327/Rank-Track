@@ -1,4 +1,5 @@
 import { AiPanel, AnalysisBoard } from "@/components/analysis-board";
+import { PageTransition } from "@/components/page-transition";
 import { runAnalysis } from "@/lib/analysis";
 import { getSettings, listExams } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
@@ -10,12 +11,14 @@ export default async function AnalysisPage() {
   const [exams, settings] = await Promise.all([listExams(user.id), getSettings(user.id)]);
   const analysis = runAnalysis(exams, settings);
   return (
-    <div className="stack">
-      <div className="page-head">
-        <h1>分析</h1>
+    <PageTransition>
+      <div className="stack">
+        <div className="page-head">
+          <h1>分析</h1>
+        </div>
+        <AnalysisBoard analysis={analysis} />
+        <AiPanel />
       </div>
-      <AnalysisBoard analysis={analysis} />
-      <AiPanel />
-    </div>
+    </PageTransition>
   );
 }

@@ -40,7 +40,8 @@ export function AppShell({
 
   return (
     <div className="shell">
-      <header className="topbar">
+      {/* viewTransitionName：切页动画时顶栏锚定不动，见 globals.css */}
+      <header className="topbar" style={{ viewTransitionName: "site-header" }}>
         <div className="topbar-inner">
           <Link href="/" className="brand">
             <Image src="/logo.png" alt="" width={28} height={28} />

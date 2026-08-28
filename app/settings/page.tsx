@@ -1,5 +1,6 @@
 import { SettingsForm } from "@/components/settings-form";
 import { ImportPanel } from "@/components/import-panel";
+import { PageTransition } from "@/components/page-transition";
 import { dataStatus, findUserById, getSettings } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
 import { redirect } from "next/navigation";
@@ -22,19 +23,21 @@ export default async function SettingsPage() {
     },
   };
   return (
-    <div className="stack">
-      <div className="page-head">
-        <h1>设置</h1>
+    <PageTransition>
+      <div className="stack">
+        <div className="page-head">
+          <h1>设置</h1>
+        </div>
+        <SettingsForm
+          settings={publicSettings as never}
+          user={{ username: user.username, created_at: user.created_at }}
+          status={status}
+        />
+        <section className="card">
+          <h3>导入备份 / 表格</h3>
+          <ImportPanel />
+        </section>
       </div>
-      <SettingsForm
-        settings={publicSettings as never}
-        user={{ username: user.username, created_at: user.created_at }}
-        status={status}
-      />
-      <section className="card">
-        <h3>导入备份 / 表格</h3>
-        <ImportPanel />
-      </section>
-    </div>
+    </PageTransition>
   );
 }

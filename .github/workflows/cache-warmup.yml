@@ -31,7 +31,7 @@ jobs:
           {
             curl -s "$SITE/login"
             curl -s "$SITE/help"
-          } | grep -o '/_next/static/[^"]*' | sort -u > urls.txt
+          } | grep -o '/_next/static/[^"\\]*' | sort -u > urls.txt
           printf '%s\n%s\n' /logo.png /favicon.ico >> urls.txt
           echo "--- warmable assets: $(wc -l < urls.txt) ---"
 

@@ -446,6 +446,64 @@ table.data td input:focus {
   text-decoration: underline;
 }
 
+/* GFM 表格：可横向滚动，不撑破卡片/气泡 */
+.markdown table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: var(--gap-sm);
+}
+
+.markdown th,
+.markdown td {
+  border: 1px solid var(--line);
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.markdown th {
+  background: var(--fill);
+  font-weight: 600;
+}
+
+.markdown code {
+  background: var(--fill);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 13px;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+}
+
+.markdown pre {
+  background: var(--fill);
+  border-radius: var(--radius-xs);
+  padding: 10px;
+  overflow-x: auto;
+  margin-top: var(--gap-sm);
+}
+
+.markdown pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+  font-size: 14px;
+  margin-top: var(--gap-sm);
+}
+
+.markdown blockquote {
+  border-left: 3px solid var(--line-strong);
+  padding-left: 10px;
+  color: var(--fg-3);
+  margin-top: var(--gap-sm);
+}
+
 .chat {
   display: flex;
   flex-direction: column;
@@ -468,6 +526,81 @@ table.data td input:focus {
   margin-left: auto;
   background: var(--fg);
   color: var(--bg-elevated);
+}
+
+/* AI 聊天历史弹层 */
+.chat-menu {
+  position: relative;
+}
+
+.chat-pop {
+  position: absolute;
+  right: 0;
+  top: 36px;
+  z-index: 20;
+  width: min(260px, 80vw);
+  max-height: 280px;
+  overflow: auto;
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chat-pop-item {
+  display: flex;
+  align-items: center;
+  border-radius: 8px;
+}
+
+.chat-pop-item:hover {
+  background: var(--fill);
+}
+
+.chat-pop-item.active .chat-pop-title {
+  font-weight: 600;
+}
+
+.chat-pop-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 8px 10px;
+}
+
+.chat-pop-title {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-pop-time {
+  font-size: 12px;
+  color: var(--fg-4);
+}
+
+.chat-pop-del {
+  border: 0;
+  background: transparent;
+  color: var(--fg-4);
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.chat-pop-del:hover {
+  color: var(--red);
 }
 
 .section {

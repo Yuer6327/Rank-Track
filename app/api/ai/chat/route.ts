@@ -1,35 +1,26 @@
 import { compactHistory, latestFull, runAnalysis } from "@/lib/analysis";
 import { fail, handleRouteError, readJson, requireUser } from "@/lib/api";
 import { decryptSecret } from "@/lib/crypto";
-import { getConversation, getSettings, listExams, saveConversation } from "@/lib/db";
+import { getSettings, listExams } from "@/lib/db";
 import type { ChatMessage } from "@/lib/types";
 
 const DEFAULT_ENDPOINT = "https://apihub.agnes-ai.com/v1/chat/completions";
 const DEFAULT_MODEL = "agnes-2.5-flash";
 
-export async function GET() {
-  try {
-    const user = await requireUser();
-    const conv = await getConversation(user.id);
-    return Response.json({ messages: conv?.messages ?? [] });
-  } catch (err) {
-    return handleRouteError(err);
-  }
-}
-
 export async function POST(req: Request) {
   try {
     const user = await requireUser();
-    const body = await readJson<{ prompt?: string; preset?: string }>(req);
+    const body = await readJson<{ prompt?: string; preset?: string; history?: ChatMessage[] }>(req);
     const prompt = (body.prompt ?? "").trim();
     const preset = body.preset ?? "";
     if (!prompt && !preset) return fail(400, "请输入问题");
 
-    const [exams, settings, conv] = await Promise.all([
-      listExams(user.id),
-      getSettings(user.id),
-      getConversation(user.id),
-    ]);
+    // 聊天记录由浏览器 localStorage 存储，仅随请求携带最近几条作为上下文
+    const history = (body.history ?? [])
+      .filter((m): m is ChatMessage => (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+      .slice(-5);
+
+    const [exams, settings] = await Promise.all([listExams(user.id), getSettings(user.id)]);
     const analysis = runAnalysis(exams, settings);
     const payload = {
       user_context: {
@@ -58,12 +49,11 @@ export async function POST(req: Request) {
           ? "请基于当前差距和目标，给出考前复习重点建议。"
           : prompt;
 
-    const history = ((conv?.messages ?? []) as ChatMessage[]).slice(-6);
     const messages: ChatMessage[] = [
       {
         role: "system",
         content:
-          "你是 Rank Track 的学业分析助手，服务上海 3+3 高考生。用中文简洁作答，基于给定 JSON 数据，不要编造不存在的分数。可用 Markdown。",
+          "你是 Rank Track 的学业分析助手，服务上海 3+3 高考生。用中文简洁作答，基于给定 JSON 数据，不要编造不存在的分数。可用 Markdown（表格、列表、加粗）。禁止输出任何链接或网址（包括 localhost），需要指引用页面名称描述，如「设置 → 长期目标」。",
       },
       ...history,
       { role: "user", content: `${userText}\n\n数据：\n${JSON.stringify(payload)}` },
@@ -97,7 +87,6 @@ export async function POST(req: Request) {
 
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
-    let assistant = "";
 
     const stream = new ReadableStream({
       async start(controller) {
@@ -120,21 +109,12 @@ export async function POST(req: Request) {
                   choices?: { delta?: { content?: string }; message?: { content?: string } }[];
                 };
                 const token = json.choices?.[0]?.delta?.content ?? json.choices?.[0]?.message?.content ?? "";
-                if (token) {
-                  assistant += token;
-                  controller.enqueue(encoder.encode(token));
-                }
+                if (token) controller.enqueue(encoder.encode(token));
               } catch {
                 // ignore malformed sse
               }
             }
           }
-          const stored: ChatMessage[] = [
-            ...history,
-            { role: "user" as const, content: userText },
-            { role: "assistant" as const, content: assistant },
-          ].slice(-6);
-          await saveConversation(user.id, stored);
           controller.close();
         } catch (e) {
           controller.error(e);
@@ -148,16 +128,6 @@ export async function POST(req: Request) {
         "Cache-Control": "no-cache",
       },
     });
-  } catch (err) {
-    return handleRouteError(err);
-  }
-}
-
-export async function DELETE() {
-  try {
-    const user = await requireUser();
-    await saveConversation(user.id, []);
-    return Response.json({ ok: true });
   } catch (err) {
     return handleRouteError(err);
   }

@@ -336,33 +336,6 @@ export async function deleteImage(userId: string, id: string) {
   return data as ExamImage | null;
 }
 
-export async function getConversation(userId: string) {
-  const { data, error } = await getAdminClient()
-    .from("ai_conversations")
-    .select("*")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (error) throw error;
-  return data as { id: string; messages: unknown[]; updated_at: string } | null;
-}
-
-export async function saveConversation(userId: string, messages: unknown[]) {
-  const trimmed = messages.slice(-6);
-  const existing = await getConversation(userId);
-  if (existing) {
-    const { error } = await getAdminClient()
-      .from("ai_conversations")
-      .update({ messages: trimmed, updated_at: new Date().toISOString() })
-      .eq("user_id", userId);
-    if (error) throw error;
-    return;
-  }
-  const { error } = await getAdminClient()
-    .from("ai_conversations")
-    .insert({ user_id: userId, messages: trimmed });
-  if (error) throw error;
-}
-
 export async function clearExams(userId: string) {
   const { error } = await getAdminClient().from("exams").delete().eq("user_id", userId);
   if (error) throw error;

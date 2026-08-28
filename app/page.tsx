@@ -42,7 +42,7 @@ export default async function HomePage() {
 
         <section className="card">
           <h2>D. 考后复盘</h2>
-          <ul>
+          <ul style={{ paddingLeft: 18 }}>
             {analysis.summaries.map((s) => (
               <li key={s} style={{ marginBottom: 8 }}>
                 {s}

@@ -1,5 +1,6 @@
 import { defaultSettings } from "./defaults";
 import { getAdminClient, STORAGE_BUCKET } from "./supabase";
+import { sanitizeLevel, sanitizeRank, sanitizeScoreFields } from "./validate";
 import type {
   Exam,
   ExamImage,
@@ -65,13 +66,37 @@ export async function getSettings(userId: string): Promise<Settings> {
 }
 
 export async function upsertSettings(settings: Settings) {
+  const goals = settings.long_term_goals;
+  // 人数与目标排名一并过护栏，防止 0 / 负数 / 超大数把百分比算成 Infinity
+  const clean: Settings = {
+    ...settings,
+    total_students: {
+      class: sanitizeRank(settings.total_students.class),
+      grade: sanitizeRank(settings.total_students.grade),
+      city: sanitizeRank(settings.total_students.city),
+    },
+    long_term_goals: {
+      ...goals,
+      total_class_rank: sanitizeRank(goals.total_class_rank),
+      total_grade_rank: sanitizeRank(goals.total_grade_rank),
+      total_city_rank: sanitizeRank(goals.total_city_rank),
+      subjects: goals.subjects
+        ? Object.fromEntries(
+            Object.entries(goals.subjects).map(([k, v]) => [
+              k,
+              v ? { rank: sanitizeRank(v.rank), level: sanitizeLevel(v.level) } : v,
+            ]),
+          )
+        : goals.subjects,
+    },
+  };
   const { error } = await getAdminClient().from("settings").upsert(
     {
-      user_id: settings.user_id,
-      enabled_minor_subjects: settings.enabled_minor_subjects,
-      subject_order: settings.subject_order,
-      long_term_goals: settings.long_term_goals,
-      total_students: settings.total_students,
+      user_id: clean.user_id,
+      enabled_minor_subjects: clean.enabled_minor_subjects,
+      subject_order: clean.subject_order,
+      long_term_goals: clean.long_term_goals,
+      total_students: clean.total_students,
       trend_chart_default_dimension: settings.trend_chart_default_dimension,
       trend_chart_show_goal_line: settings.trend_chart_show_goal_line,
       trend_chart_show_data_labels: settings.trend_chart_show_data_labels,
@@ -152,9 +177,9 @@ export async function upsertExam(userId: string, payload: ExamWrite, examId?: st
     user_id: userId,
     exam_name: payload.exam_name.trim(),
     exam_date: payload.exam_date.slice(0, 10),
-    total_class_rank: payload.total_class_rank ?? null,
-    total_grade_rank: payload.total_grade_rank ?? null,
-    total_city_rank: payload.total_city_rank ?? null,
+    total_class_rank: sanitizeRank(payload.total_class_rank),
+    total_grade_rank: sanitizeRank(payload.total_grade_rank),
+    total_city_rank: sanitizeRank(payload.total_city_rank),
     updated_at: new Date().toISOString(),
   };
 
@@ -223,16 +248,19 @@ async function replaceSubjectScores(
     .eq("user_id", userId)
     .eq("exam_id", examId);
   if (delErr) throw delErr;
-  const rows = scores.map((s) => ({
-    user_id: userId,
-    exam_id: examId,
-    subject: s.subject,
-    score: s.score ?? null,
-    level: s.level ?? null,
-    class_rank: s.class_rank ?? null,
-    grade_rank: s.grade_rank ?? null,
-    city_rank: s.city_rank ?? null,
-  }));
+  const rows = scores.map((s) => {
+    const v = sanitizeScoreFields(s);
+    return {
+      user_id: userId,
+      exam_id: examId,
+      subject: s.subject,
+      score: v.score ?? null,
+      level: v.level ?? null,
+      class_rank: v.class_rank ?? null,
+      grade_rank: v.grade_rank ?? null,
+      city_rank: v.city_rank ?? null,
+    };
+  });
   if (!rows.length) return;
   const { error } = await getAdminClient().from("subject_scores").insert(rows);
   if (error) throw error;

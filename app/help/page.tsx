@@ -26,6 +26,7 @@ export default function HelpPage() {
           <ul className="mt-sm" style={{ paddingLeft: 18 }}>
             <li>日期格式 YYYY-MM-DD</li>
             <li>字段可留空</li>
+            <li>分数为 0–150 整数，排名为正整数，超范围会自动修正</li>
             <li>考试名称 + 日期相同会合并填充（空字段才覆盖）</li>
             <li>小三门等级：A+ 到 E</li>
           </ul>

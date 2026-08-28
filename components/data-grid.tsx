@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { enabledSubjects } from "@/lib/analysis";
 import { LEVELS, MAJOR_SUBJECTS, type Exam, type Settings, type Subject, type SubjectScore } from "@/lib/types";
+import { sanitizeDigits, sanitizeRank, sanitizeScoreFields } from "@/lib/validate";
 
 type CellKey =
   | "exam_name"
@@ -55,6 +56,10 @@ function patchScore(exam: Exam, subject: Subject, field: keyof SubjectScore, val
 }
 
 function applyCell(exam: Exam, key: CellKey, value: string): Exam {
+  // 数值列输入时只放行数字：防负号、小数点、字母和超长输入
+  if (key !== "exam_name" && key !== "exam_date" && !key.endsWith(":level")) {
+    value = sanitizeDigits(value);
+  }
   if (key === "exam_name") return { ...exam, exam_name: value };
   if (key === "exam_date") return { ...exam, exam_date: value };
   if (key === "total_class_rank") return { ...exam, total_class_rank: value === "" ? null : Number(value) };
@@ -117,17 +122,28 @@ export function DataGrid({ exams, settings }: { exams: Exam[]; settings: Setting
     return v == null ? "" : String(v);
   }
 
-  async function saveRow(exam: Exam) {
-    if (!exam.exam_name.trim() || !exam.exam_date) return;
+  async function saveRow(ri: number) {
+    const exam = rowsRef.current[ri];
+    if (!exam || !exam.exam_name.trim() || !exam.exam_date) return;
     setBusy(true);
     const payload = {
       exam_name: exam.exam_name,
       exam_date: exam.exam_date,
-      total_class_rank: exam.total_class_rank,
-      total_grade_rank: exam.total_grade_rank,
-      total_city_rank: exam.total_city_rank,
-      subject_scores: exam.subject_scores,
+      total_class_rank: sanitizeRank(exam.total_class_rank),
+      total_grade_rank: sanitizeRank(exam.total_grade_rank),
+      total_city_rank: sanitizeRank(exam.total_city_rank),
+      subject_scores: (exam.subject_scores ?? []).map((s) => sanitizeScoreFields(s)),
     };
+    // 本地行同步为清洗后的值，避免界面与库中数据不一致
+    const clean: Exam = {
+      ...exam,
+      total_class_rank: payload.total_class_rank,
+      total_grade_rank: payload.total_grade_rank,
+      total_city_rank: payload.total_city_rank,
+      subject_scores: payload.subject_scores,
+    };
+    const fixed = JSON.stringify(clean) !== JSON.stringify(exam);
+    if (fixed) setRows((prev) => prev.map((r, i) => (i === ri ? clean : r)));
     const res = await fetch(exam.id ? `/api/exams/${exam.id}` : "/api/exams", {
       method: exam.id ? "PUT" : "POST",
       headers: { "Content-Type": "application/json" },
@@ -140,9 +156,9 @@ export function DataGrid({ exams, settings }: { exams: Exam[]; settings: Setting
       return;
     }
     if (!exam.id && data.exam?.id) {
-      setRows((prev) => prev.map((r) => (r === exam || (!r.id && r.exam_name === exam.exam_name && r.exam_date === exam.exam_date) ? data.exam : r)));
+      setRows((prev) => prev.map((r, i) => (i === ri ? data.exam : r)));
     }
-    setMsg("已保存");
+    setMsg(fixed ? "已自动修正无效输入（分数 0–150 整数，排名为正整数）并保存" : "已保存");
     router.refresh();
   }
 
@@ -209,9 +225,9 @@ export function DataGrid({ exams, settings }: { exams: Exam[]; settings: Setting
                         onChange={(e) =>
                           setRows((prev) => prev.map((row, i) => (i === ri ? applyCell(row, c.key, e.target.value) : row)))
                         }
-                        onBlur={() => saveRow(rowsRef.current[ri])}
+                        onBlur={() => saveRow(ri)}
                       >
-                        <option value=""></option>
+                        <option value="">—</option>
                         {LEVELS.map((l) => (
                           <option key={l}>{l}</option>
                         ))}
@@ -219,11 +235,12 @@ export function DataGrid({ exams, settings }: { exams: Exam[]; settings: Setting
                     ) : (
                       <input
                         value={getValue(exam, c.key)}
+                        inputMode={c.key !== "exam_name" && c.key !== "exam_date" ? "numeric" : undefined}
                         onChange={(e) =>
                           setRows((prev) => prev.map((row, i) => (i === ri ? applyCell(row, c.key, e.target.value) : row)))
                         }
                         onPaste={(e) => onPaste(e, ri, ci)}
-                        onBlur={() => saveRow(rowsRef.current[ri])}
+                        onBlur={() => saveRow(ri)}
                       />
                     )}
                   </td>

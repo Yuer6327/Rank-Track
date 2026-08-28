@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Rank Track
 
-## Getting Started
+面向上海高考生的成绩**排名**追踪与分析工具（3+3）。支持班级 / 年级 / 全市多维排名、大三门分数 + 小三门等级、趋势图、规则分析与 AI 辅助。
 
-First, run the development server:
+- 仓库：https://github.com/Yuer6327/Rank-Track
+- 部署：Vercel（Next.js App Router）
+
+## 技术栈
+
+Next.js 16 · Supabase (PostgreSQL + Storage) · JWT Cookie 认证 · Recharts · Agnes AI
+
+## 本地开发
+
+1. 在 Supabase SQL Editor 执行 `supabase/schema.sql`（建表、RLS、Storage bucket `exam-images`）。
+2. 复制环境变量：
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+填写：
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+JWT_SECRET=          # 随机长字符串
+AGNES_API_KEY=       # 可选，分析页 AI 用
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+3. 安装并启动：
 
-## Learn More
+```bash
+npm install
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+打开 http://localhost:3000 注册账号。
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 分析自检
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run check:analysis
+```
 
-## Deploy on Vercel
+## 页面
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| 路由 | 说明 |
+|------|------|
+| `/` | 趋势、最近考试、复盘摘要、差距仪表盘 |
+| `/analysis` | 异常 / 单科影响 / 相关 / 提分空间 / AI |
+| `/data` | 在线表格 + Excel 导入 |
+| `/exam/[id]` | 单次考试详情、笔记、图片 |
+| `/notes` | 回顾笔记 |
+| `/settings` | 科目、目标、人数、导入导出、危险区 |
+| `/help` | 上手指引与 FAQ |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+忘记密码请联系管理员手动重置。

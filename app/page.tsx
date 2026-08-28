@@ -1,69 +1,61 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+import Link from "next/link";
+import { ExamCard } from "@/components/exam-card";
+import { GoalDashboard } from "@/components/goal-dashboard";
+import { RankChart } from "@/components/rank-chart";
+import { runAnalysis } from "@/lib/analysis";
+import { getSettings, listExams } from "@/lib/db";
+import { getSessionUser } from "@/lib/session";
+import { redirect } from "next/navigation";
 
-export default function Home() {
+export default async function HomePage() {
+  const user = await getSessionUser();
+  if (!user) redirect("/login");
+  const [exams, settings] = await Promise.all([listExams(user.id), getSettings(user.id)]);
+  const analysis = runAnalysis(exams, settings);
+  const latest = exams[exams.length - 1];
+  const prev = exams[exams.length - 2];
+  const compact = settings.home_density === "compact";
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>
-            To get started, edit the{" "}
-            <code className={styles.code}>page.tsx</code> file.
-          </h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="stack" style={{ gap: compact ? 12 : 18 }}>
+      <div className="page-head">
+        <div>
+          <h1>总览</h1>
+          <p className="muted">排名优先 · 上海 3+3</p>
         </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+        <Link className="btn primary" href="/data">
+          录入成绩
+        </Link>
+      </div>
+
+      <section className="card">
+        <h2>A. 总排名趋势</h2>
+        {exams.length ? <RankChart exams={exams} settings={settings} /> : <p className="empty">还没有考试数据</p>}
+      </section>
+
+      <section className="card">
+        <h2>B. 最近考试</h2>
+        {latest ? <ExamCard exam={latest} prev={prev} settings={settings} /> : <p className="empty">暂无考试</p>}
+      </section>
+
+      <section className="card">
+        <h2>D. 考后复盘</h2>
+        <ul>
+          {analysis.summaries.map((s) => (
+            <li key={s} style={{ marginBottom: 6 }}>
+              {s}
+            </li>
+          ))}
+        </ul>
+        <Link className="btn" href="/analysis">
+          查看详细分析
+        </Link>
+      </section>
+
+      <section className="card">
+        <h2>C. 差距仪表盘</h2>
+        <GoalDashboard rows={analysis.goals} />
+      </section>
     </div>
   );
 }

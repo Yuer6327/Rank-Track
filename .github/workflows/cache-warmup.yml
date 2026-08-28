@@ -1,0 +1,57 @@
+# 缓存预热与命中率检查（每次部署后运行）
+# 流程参考: https://upxuu.com/posts/vercel-youxuan-cache/
+# 适配点: 本站页面/API 含登录态,为 no-store 动态响应,预热对象只有
+# 指纹化静态资源(/_next/static、logo、favicon);报告上传 artifact,
+# 不回写仓库,避免再次触发部署。
+name: Cache Warmup
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  SITE: https://rank.yuer6327.top
+
+jobs:
+  warmup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Vercel deployment
+        run: sleep 120
+
+      - name: Collect warmable URLs
+        run: |
+          # 入口页面只探测可达性(动态 no-store,不会进边缘缓存)
+          for p in / /login /register /help /api/health; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$SITE$p")
+            echo "page $code $p" >> HIT.txt
+          done
+          # 从公开页 HTML 提取指纹化静态资源(真正可被边缘缓存的)
+          {
+            curl -s "$SITE/login"
+            curl -s "$SITE/help"
+          } | grep -o '/_next/static/[^"]*' | sort -u > urls.txt
+          printf '%s\n%s\n' /logo.png /favicon.ico >> urls.txt
+          echo "--- warmable assets: $(wc -l < urls.txt) ---"
+
+      - name: Warm cache
+        # 注意:不要加 Cache-Control: no-cache 请求头,否则强制回源,永远测不到 HIT
+        run: |
+          while read -r u; do
+            curl -s -o /dev/null "$SITE$u"
+          done < urls.txt
+
+      - name: Verify cache hits
+        run: |
+          while read -r u; do
+            cache=$(curl -s -o /dev/null -D - "$SITE$u" | grep -i '^x-vercel-cache:' | tr -d '\r' | awk '{print $2}')
+            echo "hit ${cache:-NONE} $u" >> HIT.txt
+          done < urls.txt
+          cat HIT.txt
+
+      - name: Upload hit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: hit-report
+          path: HIT.txt

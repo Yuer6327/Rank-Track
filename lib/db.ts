@@ -1,5 +1,5 @@
 import { defaultSettings } from "./defaults";
-import { getAdminClient, STORAGE_BUCKET } from "./supabase";
+import { getAdminClient, STORAGE_BUCKET, withTransientRetry } from "./supabase";
 import { sanitizeLevel, sanitizeRank, sanitizeScoreFields } from "./validate";
 import type {
   Exam,
@@ -11,23 +11,27 @@ import type {
 } from "./types";
 
 export async function findUserByUsername(username: string) {
-  const { data, error } = await getAdminClient()
-    .from("users")
-    .select("*")
-    .eq("username", username)
-    .maybeSingle();
-  if (error) throw error;
-  return data as UserRow | null;
+  return withTransientRetry(async () => {
+    const { data, error } = await getAdminClient()
+      .from("users")
+      .select("*")
+      .eq("username", username)
+      .maybeSingle();
+    if (error) throw error;
+    return data as UserRow | null;
+  });
 }
 
 export async function findUserById(id: string) {
-  const { data, error } = await getAdminClient()
-    .from("users")
-    .select("id, username, created_at")
-    .eq("id", id)
-    .maybeSingle();
-  if (error) throw error;
-  return data as Pick<UserRow, "id" | "username" | "created_at"> | null;
+  return withTransientRetry(async () => {
+    const { data, error } = await getAdminClient()
+      .from("users")
+      .select("id, username, created_at")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    return data as Pick<UserRow, "id" | "username" | "created_at"> | null;
+  });
 }
 
 export async function createUser(username: string, passwordHash: string) {
@@ -51,18 +55,20 @@ export async function updatePasswordHash(userId: string, passwordHash: string) {
 }
 
 export async function getSettings(userId: string): Promise<Settings> {
-  const { data, error } = await getAdminClient()
-    .from("settings")
-    .select("*")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (error) throw error;
-  if (!data) {
-    const created = defaultSettings(userId);
-    await upsertSettings(created);
-    return created;
-  }
-  return defaultSettings(userId, data as Partial<Settings>);
+  return withTransientRetry(async () => {
+    const { data, error } = await getAdminClient()
+      .from("settings")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) {
+      const created = defaultSettings(userId);
+      await upsertSettings(created);
+      return created;
+    }
+    return defaultSettings(userId, data as Partial<Settings>);
+  });
 }
 
 export async function upsertSettings(settings: Settings) {
@@ -121,46 +127,50 @@ export async function upsertSettings(settings: Settings) {
 }
 
 export async function listExams(userId: string): Promise<Exam[]> {
-  const { data: exams, error } = await getAdminClient()
-    .from("exams")
-    .select("*")
-    .eq("user_id", userId)
-    .order("exam_date", { ascending: true })
-    .order("created_at", { ascending: true });
-  if (error) throw error;
-  const { data: scores, error: sErr } = await getAdminClient()
-    .from("subject_scores")
-    .select("*")
-    .eq("user_id", userId);
-  if (sErr) throw sErr;
-  const byExam = new Map<string, SubjectScore[]>();
-  for (const row of (scores ?? []) as SubjectScore[]) {
-    const list = byExam.get(row.exam_id) ?? [];
-    list.push(row);
-    byExam.set(row.exam_id, list);
-  }
-  return ((exams ?? []) as Exam[]).map((exam) => ({
-    ...exam,
-    subject_scores: byExam.get(exam.id) ?? [],
-  }));
+  return withTransientRetry(async () => {
+    const { data: exams, error } = await getAdminClient()
+      .from("exams")
+      .select("*")
+      .eq("user_id", userId)
+      .order("exam_date", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    const { data: scores, error: sErr } = await getAdminClient()
+      .from("subject_scores")
+      .select("*")
+      .eq("user_id", userId);
+    if (sErr) throw sErr;
+    const byExam = new Map<string, SubjectScore[]>();
+    for (const row of (scores ?? []) as SubjectScore[]) {
+      const list = byExam.get(row.exam_id) ?? [];
+      list.push(row);
+      byExam.set(row.exam_id, list);
+    }
+    return ((exams ?? []) as Exam[]).map((exam) => ({
+      ...exam,
+      subject_scores: byExam.get(exam.id) ?? [],
+    }));
+  });
 }
 
 export async function getExam(userId: string, examId: string) {
-  const { data, error } = await getAdminClient()
-    .from("exams")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("id", examId)
-    .maybeSingle();
-  if (error) throw error;
-  if (!data) return null;
-  const { data: scores, error: sErr } = await getAdminClient()
-    .from("subject_scores")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("exam_id", examId);
-  if (sErr) throw sErr;
-  return { ...(data as Exam), subject_scores: (scores ?? []) as SubjectScore[] };
+  return withTransientRetry(async () => {
+    const { data, error } = await getAdminClient()
+      .from("exams")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("id", examId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    const { data: scores, error: sErr } = await getAdminClient()
+      .from("subject_scores")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("exam_id", examId);
+    if (sErr) throw sErr;
+    return { ...(data as Exam), subject_scores: (scores ?? []) as SubjectScore[] };
+  });
 }
 
 export type ExamWrite = {
@@ -272,25 +282,29 @@ export async function deleteExam(userId: string, examId: string) {
 }
 
 export async function findExamByNameDate(userId: string, name: string, date: string) {
-  const { data, error } = await getAdminClient()
-    .from("exams")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("exam_name", name.trim())
-    .eq("exam_date", date.slice(0, 10))
-    .maybeSingle();
-  if (error) throw error;
-  return (data as { id: string } | null)?.id ?? null;
+  return withTransientRetry(async () => {
+    const { data, error } = await getAdminClient()
+      .from("exams")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("exam_name", name.trim())
+      .eq("exam_date", date.slice(0, 10))
+      .maybeSingle();
+    if (error) throw error;
+    return (data as { id: string } | null)?.id ?? null;
+  });
 }
 
 export async function listNotes(userId: string): Promise<Note[]> {
-  const { data, error } = await getAdminClient()
-    .from("notes")
-    .select("*")
-    .eq("user_id", userId)
-    .order("updated_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as Note[];
+  return withTransientRetry(async () => {
+    const { data, error } = await getAdminClient()
+      .from("notes")
+      .select("*")
+      .eq("user_id", userId)
+      .order("updated_at", { ascending: false });
+    if (error) throw error;
+    return (data ?? []) as Note[];
+  });
 }
 
 export async function upsertNote(
@@ -333,13 +347,15 @@ export async function deleteNote(userId: string, id: string) {
 }
 
 export async function listImages(userId: string, examId?: string): Promise<ExamImage[]> {
-  let q = getAdminClient().from("exam_images").select("*").eq("user_id", userId).order("created_at", {
-    ascending: false,
+  return withTransientRetry(async () => {
+    let q = getAdminClient().from("exam_images").select("*").eq("user_id", userId).order("created_at", {
+      ascending: false,
+    });
+    if (examId) q = q.eq("exam_id", examId);
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data ?? []) as ExamImage[];
   });
-  if (examId) q = q.eq("exam_id", examId);
-  const { data, error } = await q;
-  if (error) throw error;
-  return (data ?? []) as ExamImage[];
 }
 
 export async function insertImage(userId: string, examId: string, imageUrl: string) {
@@ -392,21 +408,23 @@ export function storagePathFromUrl(url: string) {
 }
 
 export async function dataStatus(userId: string) {
-  const { count, error } = await getAdminClient()
-    .from("exams")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId);
-  if (error) throw error;
-  const { data } = await getAdminClient()
-    .from("exams")
-    .select("updated_at")
-    .eq("user_id", userId)
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return {
-    examCount: count ?? 0,
-    lastUpdated: (data as { updated_at?: string } | null)?.updated_at ?? null,
-    supabase: true,
-  };
+  return withTransientRetry(async () => {
+    const { count, error } = await getAdminClient()
+      .from("exams")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId);
+    if (error) throw error;
+    const { data } = await getAdminClient()
+      .from("exams")
+      .select("updated_at")
+      .eq("user_id", userId)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return {
+      examCount: count ?? 0,
+      lastUpdated: (data as { updated_at?: string } | null)?.updated_at ?? null,
+      supabase: true,
+    };
+  });
 }

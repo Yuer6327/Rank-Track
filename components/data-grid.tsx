@@ -4,7 +4,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { enabledSubjects } from "@/lib/analysis";
 import { LEVELS, MAJOR_SUBJECTS, type Exam, type Settings, type Subject, type SubjectScore } from "@/lib/types";
-import { sanitizeDecimal, sanitizeDigits, sanitizeRank, sanitizeScoreFields } from "@/lib/validate";
+import {
+  sanitizeDecimal,
+  sanitizeDigits,
+  sanitizeRank,
+  sanitizeScoreFields,
+} from "@/lib/validate";
 
 type CellKey =
   | "exam_name"
@@ -97,6 +102,9 @@ export function DataGrid({ exams, settings }: { exams: Exam[]; settings: Setting
   const dirtyRef = useRef<Set<number>>(new Set());
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSaveAtRef = useRef(0);
+  // 小数输入草稿：状态里的分数是数字（Number("100.") === 100），末尾小数点会被
+  // 回显吞掉导致无法逐键输入小数；草稿保存输入中的原始字符串，保存后清除
+  const [drafts, setDrafts] = useState<Map<string, string>>(new Map());
 
   // 转置布局：一次考试一列，字段做行；总分三行置顶，group 标记门类首行（渲染粗分隔线）
   const fieldRows = useMemo<FieldRow[]>(() => {
@@ -129,7 +137,9 @@ export function DataGrid({ exams, settings }: { exams: Exam[]; settings: Setting
     return rows;
   }, [subjects]);
 
-  function getValue(exam: Exam, key: CellKey): string {
+  function getValue(exam: Exam, key: CellKey, ci: number): string {
+    const draft = drafts.get(`${ci}:${key}`);
+    if (draft !== undefined) return draft;
     if (key === "exam_name") return exam.exam_name ?? "";
     if (key === "exam_date") return exam.exam_date ?? "";
     if (key === "total_class_rank") return exam.total_class_rank?.toString() ?? "";
@@ -148,6 +158,14 @@ export function DataGrid({ exams, settings }: { exams: Exam[]; settings: Setting
     const exam = rowsRef.current[ci];
     dirtyRef.current.delete(ci);
     if (!exam || !exam.exam_name.trim() || !exam.exam_date) return;
+    // 落库后状态即为权威数字，清掉该列输入草稿
+    setDrafts((prev) => {
+      const next = new Map(prev);
+      for (const k of [...next.keys()]) {
+        if (k.startsWith(`${ci}:`)) next.delete(k);
+      }
+      return next;
+    });
     setBusy(true);
     const payload = {
       exam_name: exam.exam_name,
@@ -231,6 +249,7 @@ export function DataGrid({ exams, settings }: { exams: Exam[]; settings: Setting
   async function removeColumn(exam: Exam, ci: number) {
     // 被删列不再待存；其余列先按删除前的索引立即落库，避免位移后错存
     dirtyRef.current.delete(ci);
+    setDrafts(new Map());
     if (dirtyRef.current.size) flushSaves();
     if (exam.id) await fetch(`/api/exams/${exam.id}`, { method: "DELETE" });
     setRows((prev) => prev.filter((_, i) => i !== ci));
@@ -313,7 +332,7 @@ export function DataGrid({ exams, settings }: { exams: Exam[]; settings: Setting
                     {String(fr.key).endsWith(":level") ? (
                       <select
                         {...cellProps(ri, ci)}
-                        value={getValue(exam, fr.key)}
+                        value={getValue(exam, fr.key, ci)}
                         onChange={(e) =>
                           setRows((prev) =>
                             prev.map((row, i) => (i === ci ? applyCell(row, fr.key, e.target.value) : row)),
@@ -328,7 +347,7 @@ export function DataGrid({ exams, settings }: { exams: Exam[]; settings: Setting
                     ) : (
                       <input
                         {...cellProps(ri, ci)}
-                        value={getValue(exam, fr.key)}
+                        value={getValue(exam, fr.key, ci)}
                         inputMode={
                           fr.key !== "exam_name" && fr.key !== "exam_date"
                             ? DECIMAL_KEYS.test(fr.key)
@@ -336,11 +355,17 @@ export function DataGrid({ exams, settings }: { exams: Exam[]; settings: Setting
                               : "numeric"
                             : undefined
                         }
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          // 分数/班均把清洗后的字符串记入草稿，避免末尾小数点被数字回显吞掉
+                          if (DECIMAL_KEYS.test(fr.key)) {
+                            const dKey = `${ci}:${fr.key}`;
+                            const dVal = sanitizeDecimal(e.target.value);
+                            setDrafts((prev) => new Map(prev).set(dKey, dVal));
+                          }
                           setRows((prev) =>
                             prev.map((row, i) => (i === ci ? applyCell(row, fr.key, e.target.value) : row)),
-                          )
-                        }
+                          );
+                        }}
                         onPaste={(e) => onPaste(e, ci, ri)}
                       />
                     )}

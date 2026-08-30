@@ -379,6 +379,9 @@ table.data td input:focus {
 table.data.transposed {
   width: auto;
   min-width: 0;
+  /* separate 让吸附列的边框随单元格滚动，避免 collapse+sticky 的边框错位 */
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 /* 列宽上下限：数据少时不随屏幕拉伸，数据多时横向滚动条兜底 */
@@ -395,6 +398,12 @@ table.data.transposed th {
   width: auto;
   min-width: 88px;
   max-width: 150px;
+}
+
+/* 门类分组（总分/语文/数学/…/操作）之间的粗分隔线 */
+table.data.transposed tr.group-start th,
+table.data.transposed tr.group-start td {
+  border-top: 2px solid var(--line-strong);
 }
 
 table.data.transposed td select {

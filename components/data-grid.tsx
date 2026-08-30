@@ -21,7 +21,7 @@ const SAVE_THROTTLE_MS = 3000;
 // 模块级取时：避免组件作用域内直接调用 Date.now 触发纯度检查
 const nowMs = () => Date.now();
 
-type FieldRow = { key: CellKey; label: string };
+type FieldRow = { key: CellKey; label: string; group?: boolean };
 
 function blankExam(): Exam {
   return {
@@ -98,19 +98,19 @@ export function DataGrid({ exams, settings }: { exams: Exam[]; settings: Setting
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSaveAtRef = useRef(0);
 
-  // 转置布局：一次考试一列，字段做行；总分三行置顶
+  // 转置布局：一次考试一列，字段做行；总分三行置顶，group 标记门类首行（渲染粗分隔线）
   const fieldRows = useMemo<FieldRow[]>(() => {
     const rows: FieldRow[] = [
       { key: "exam_name", label: "考试名称" },
       { key: "exam_date", label: "日期" },
-      { key: "total_class_rank", label: "总分班排" },
+      { key: "total_class_rank", label: "总分班排", group: true },
       { key: "total_grade_rank", label: "总分年排" },
       { key: "total_city_rank", label: "总分市排" },
     ];
     for (const s of subjects) {
       if ((MAJOR_SUBJECTS as readonly string[]).includes(s)) {
         rows.push(
-          { key: `${s}:score`, label: `${s}分数` },
+          { key: `${s}:score`, label: `${s}分数`, group: true },
           { key: `${s}:class_avg`, label: `${s}班均` },
           { key: `${s}:class_rank`, label: `${s}班排` },
           { key: `${s}:grade_rank`, label: `${s}年排` },
@@ -118,7 +118,7 @@ export function DataGrid({ exams, settings }: { exams: Exam[]; settings: Setting
         );
       } else {
         rows.push(
-          { key: `${s}:level`, label: `${s}等级` },
+          { key: `${s}:level`, label: `${s}等级`, group: true },
           { key: `${s}:class_avg`, label: `${s}班均` },
           { key: `${s}:class_rank`, label: `${s}班排` },
           { key: `${s}:grade_rank`, label: `${s}年排` },
@@ -306,7 +306,7 @@ export function DataGrid({ exams, settings }: { exams: Exam[]; settings: Setting
         <table className="data transposed" ref={tableRef}>
           <tbody>
             {fieldRows.map((fr, ri) => (
-              <tr key={fr.key}>
+              <tr key={fr.key} className={fr.group ? "group-start" : undefined}>
                 <th scope="row">{fr.label}</th>
                 {rows.map((exam, ci) => (
                   <td key={exam.id || `col-${ci}`}>
@@ -348,7 +348,7 @@ export function DataGrid({ exams, settings }: { exams: Exam[]; settings: Setting
                 ))}
               </tr>
             ))}
-            <tr>
+            <tr className="group-start">
               <th scope="row">操作</th>
               {rows.map((exam, ci) => (
                 <td key={exam.id || `op-${ci}`}>

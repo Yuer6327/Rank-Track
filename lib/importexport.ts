@@ -12,6 +12,7 @@ export type SheetRow = {
     string,
     {
       score: number | null;
+      class_avg: number | null;
       level: string | null;
       class_rank: number | null;
       grade_rank: number | null;
@@ -33,14 +34,13 @@ export function enabledMinors(minors: MinorSubject[]) {
 }
 
 export function templateHeaders(minors: MinorSubject[]) {
-  const headers = ["考试名称", "考试日期"];
+  const headers = ["考试名称", "考试日期", "总分班级排名", "总分年级排名", "总分全市排名"];
   for (const s of MAJOR_SUBJECTS) {
-    headers.push(`${s}分数`, `${s}班级排名`, `${s}年级排名`, `${s}全市排名`);
+    headers.push(`${s}分数`, `${s}班级均分`, `${s}班级排名`, `${s}年级排名`, `${s}全市排名`);
   }
   for (const s of enabledMinors(minors)) {
-    headers.push(`${s}等级`, `${s}班级排名`, `${s}年级排名`, `${s}全市排名`);
+    headers.push(`${s}等级`, `${s}班级均分`, `${s}班级排名`, `${s}年级排名`, `${s}全市排名`);
   }
-  headers.push("总分班级排名", "总分年级排名", "总分全市排名");
   return headers;
 }
 
@@ -66,8 +66,9 @@ export function buildTemplateWorkbook(minors: MinorSubject[]) {
     ["填写说明"],
     ["1. 日期格式 YYYY-MM-DD"],
     ["2. 所有字段可留空"],
-    ["3. 小三门等级：A+ / A / B+ / B / B- / C+ / C / C- / D+ / D / E"],
-    ["4. 考试名称 + 日期相同视为同一场考试，导入时合并填充（空字段才覆盖）"],
+    ["3. 分数与班级均分范围 0–150，支持小数；排名为正整数"],
+    ["4. 小三门等级：A+ / A / B+ / B / B- / C+ / C / C- / D+ / D / E"],
+    ["5. 考试名称 + 日期相同视为同一场考试，导入时合并填充（空字段才覆盖）"],
   ]);
   XLSX.utils.book_append_sheet(wb, note, "说明");
   return wb;
@@ -101,16 +102,18 @@ export function parseSheet(buffer: ArrayBuffer, minors: MinorSubject[]): SheetRo
     };
     for (const s of MAJOR_SUBJECTS) {
       const score = safeNumber(bump(raw[`${s}分数`]));
+      const class_avg = safeNumber(bump(raw[`${s}班级均分`]));
       const class_rank = safeInt(bump(raw[`${s}班级排名`]));
       const grade_rank = safeInt(bump(raw[`${s}年级排名`]));
       const city_rank = safeInt(bump(raw[`${s}全市排名`]));
-      subjects[s] = { score, level: null, class_rank, grade_rank, city_rank };
+      subjects[s] = { score, class_avg, level: null, class_rank, grade_rank, city_rank };
     }
     for (const s of enabledMinors(minors)) {
       const lv = cell(raw, `${s}等级`);
       if (lv) filled += 1;
       subjects[s] = {
         score: null,
+        class_avg: safeNumber(bump(raw[`${s}班级均分`])),
         level: lv && isLevel(lv) ? lv : lv,
         class_rank: safeInt(bump(raw[`${s}班级排名`])),
         grade_rank: safeInt(bump(raw[`${s}年级排名`])),
@@ -149,22 +152,44 @@ export function diffRows(incoming: SheetRow[], existing: Exam[]): DiffItem[] {
 export function examsToAoA(exams: Exam[], minors: MinorSubject[], scope: "all" | "rank" | "score" = "all") {
   const headers = templateHeaders(minors);
   const rows = exams.map((exam) => {
-    const line: (string | number | null)[] = [exam.exam_name, exam.exam_date];
+    const line: (string | number | null)[] = [
+      exam.exam_name,
+      exam.exam_date,
+      ...(scope === "score" ? [null, null, null] : [exam.total_class_rank, exam.total_grade_rank, exam.total_city_rank]),
+    ];
     const pick = (s: Subject) => exam.subject_scores?.find((x) => x.subject === s);
     for (const s of MAJOR_SUBJECTS) {
       const sc = pick(s);
-      if (scope === "rank") line.push(null, sc?.class_rank ?? null, sc?.grade_rank ?? null, sc?.city_rank ?? null);
-      else if (scope === "score") line.push(sc?.score ?? null, null, null, null);
-      else line.push(sc?.score ?? null, sc?.class_rank ?? null, sc?.grade_rank ?? null, sc?.city_rank ?? null);
+      if (scope === "rank") {
+        line.push(null, null, sc?.class_rank ?? null, sc?.grade_rank ?? null, sc?.city_rank ?? null);
+      } else if (scope === "score") {
+        line.push(sc?.score ?? null, sc?.class_avg ?? null, null, null, null);
+      } else {
+        line.push(
+          sc?.score ?? null,
+          sc?.class_avg ?? null,
+          sc?.class_rank ?? null,
+          sc?.grade_rank ?? null,
+          sc?.city_rank ?? null,
+        );
+      }
     }
     for (const s of enabledMinors(minors)) {
       const sc = pick(s);
-      if (scope === "rank") line.push(null, sc?.class_rank ?? null, sc?.grade_rank ?? null, sc?.city_rank ?? null);
-      else if (scope === "score") line.push(sc?.level ?? null, null, null, null);
-      else line.push(sc?.level ?? null, sc?.class_rank ?? null, sc?.grade_rank ?? null, sc?.city_rank ?? null);
+      if (scope === "rank") {
+        line.push(null, null, sc?.class_rank ?? null, sc?.grade_rank ?? null, sc?.city_rank ?? null);
+      } else if (scope === "score") {
+        line.push(sc?.level ?? null, sc?.class_avg ?? null, null, null, null);
+      } else {
+        line.push(
+          sc?.level ?? null,
+          sc?.class_avg ?? null,
+          sc?.class_rank ?? null,
+          sc?.grade_rank ?? null,
+          sc?.city_rank ?? null,
+        );
+      }
     }
-    if (scope === "score") line.push(null, null, null);
-    else line.push(exam.total_class_rank, exam.total_grade_rank, exam.total_city_rank);
     return line;
   });
   return [headers, ...rows];

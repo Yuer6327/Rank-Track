@@ -49,6 +49,12 @@ export function formatRank(value: number | null | undefined) {
   return `第 ${value} 名`;
 }
 
+// 分数展示：最多两位小数，多余 0 自动去掉（85.50 → 85.5）
+export function formatScore(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return String(Math.round(value * 100) / 100);
+}
+
 export function rankDelta(current: number | null | undefined, previous: number | null | undefined) {
   if (current == null || previous == null) return null;
   return previous - current;

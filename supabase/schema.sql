@@ -52,12 +52,16 @@ create table if not exists public.subject_scores (
   user_id uuid not null references public.users(id) on delete cascade,
   subject text not null,
   score numeric,
+  class_avg numeric,
   level text,
   class_rank integer,
   grade_rank integer,
   city_rank integer,
   unique (exam_id, subject)
 );
+
+-- 既有库迁移：补齐 class_avg（班级均分）列
+alter table public.subject_scores add column if not exists class_avg numeric;
 
 create table if not exists public.notes (
   id uuid primary key default gen_random_uuid(),

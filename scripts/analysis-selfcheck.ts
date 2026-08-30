@@ -32,8 +32,8 @@ const exams: Exam[] = [
     exam_date: "2026-01-01",
     total_grade_rank: 120,
     subject_scores: [
-      { exam_id: "1", user_id: "u", subject: "数学", score: 130, level: null, class_rank: 10, grade_rank: 80, city_rank: null },
-      { exam_id: "1", user_id: "u", subject: "物理", score: null, level: "A", class_rank: null, grade_rank: 90, city_rank: null },
+      { exam_id: "1", user_id: "u", subject: "数学", score: 130, class_avg: null, level: null, class_rank: 10, grade_rank: 80, city_rank: null },
+      { exam_id: "1", user_id: "u", subject: "物理", score: null, class_avg: null, level: "A", class_rank: null, grade_rank: 90, city_rank: null },
     ],
   }),
   exam({
@@ -42,8 +42,8 @@ const exams: Exam[] = [
     exam_date: "2026-04-01",
     total_grade_rank: 90,
     subject_scores: [
-      { exam_id: "2", user_id: "u", subject: "数学", score: 140, level: null, class_rank: 8, grade_rank: 40, city_rank: null },
-      { exam_id: "2", user_id: "u", subject: "物理", score: null, level: "B+", class_rank: null, grade_rank: 200, city_rank: null },
+      { exam_id: "2", user_id: "u", subject: "数学", score: 140, class_avg: null, level: null, class_rank: 8, grade_rank: 40, city_rank: null },
+      { exam_id: "2", user_id: "u", subject: "物理", score: null, class_avg: null, level: "B+", class_rank: null, grade_rank: 200, city_rank: null },
     ],
   }),
   exam({
@@ -52,8 +52,8 @@ const exams: Exam[] = [
     exam_date: "2026-05-01",
     total_grade_rank: 70,
     subject_scores: [
-      { exam_id: "3", user_id: "u", subject: "数学", score: 142, level: null, class_rank: 7, grade_rank: 30, city_rank: null },
-      { exam_id: "3", user_id: "u", subject: "物理", score: null, level: "A+", class_rank: null, grade_rank: 50, city_rank: null },
+      { exam_id: "3", user_id: "u", subject: "数学", score: 142, class_avg: null, level: null, class_rank: 7, grade_rank: 30, city_rank: null },
+      { exam_id: "3", user_id: "u", subject: "物理", score: null, class_avg: null, level: "A+", class_rank: null, grade_rank: 50, city_rank: null },
     ],
   }),
   exam({
@@ -62,8 +62,8 @@ const exams: Exam[] = [
     exam_date: "2026-06-01",
     total_grade_rank: 60,
     subject_scores: [
-      { exam_id: "4", user_id: "u", subject: "数学", score: 145, level: null, class_rank: 5, grade_rank: 25, city_rank: null },
-      { exam_id: "4", user_id: "u", subject: "物理", score: null, level: "A", class_rank: null, grade_rank: 40, city_rank: null },
+      { exam_id: "4", user_id: "u", subject: "数学", score: 145, class_avg: null, level: null, class_rank: 5, grade_rank: 25, city_rank: null },
+      { exam_id: "4", user_id: "u", subject: "物理", score: null, class_avg: null, level: "A", class_rank: null, grade_rank: 40, city_rank: null },
     ],
   }),
   exam({
@@ -72,8 +72,8 @@ const exams: Exam[] = [
     exam_date: "2026-07-01",
     total_grade_rank: 55,
     subject_scores: [
-      { exam_id: "5", user_id: "u", subject: "数学", score: 146, level: null, class_rank: 4, grade_rank: 22, city_rank: null },
-      { exam_id: "5", user_id: "u", subject: "物理", score: null, level: "A+", class_rank: null, grade_rank: 30, city_rank: null },
+      { exam_id: "5", user_id: "u", subject: "数学", score: 146, class_avg: null, level: null, class_rank: 4, grade_rank: 22, city_rank: null },
+      { exam_id: "5", user_id: "u", subject: "物理", score: null, class_avg: null, level: "A+", class_rank: null, grade_rank: 30, city_rank: null },
     ],
   }),
 ];

@@ -55,6 +55,7 @@ async function applyRow(userId: string, row: SheetRow) {
   const scores = Object.entries(row.subjects).map(([subject, v]) => ({
     subject: subject as Subject,
     score: safeNumber(v.score),
+    class_avg: safeNumber(v.class_avg),
     level: v.level && isLevel(v.level) ? v.level : null,
     class_rank: safeInt(v.class_rank),
     grade_rank: safeInt(v.grade_rank),
@@ -106,6 +107,7 @@ async function restoreBackup(userId: string, raw: unknown) {
       subject_scores?: Array<{
         subject: Subject;
         score?: number | null;
+        class_avg?: number | null;
         level?: string | null;
         class_rank?: number | null;
         grade_rank?: number | null;
@@ -132,6 +134,7 @@ async function restoreBackup(userId: string, raw: unknown) {
         subject_scores: (exam.subject_scores ?? []).map((s) => ({
           subject: s.subject,
           score: s.score ?? null,
+          class_avg: s.class_avg ?? null,
           level: s.level && isLevel(s.level) ? s.level : null,
           class_rank: s.class_rank ?? null,
           grade_rank: s.grade_rank ?? null,

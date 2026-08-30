@@ -228,6 +228,10 @@ export async function mergeExamScores(
       user_id: userId,
       subject: incoming.subject,
       score: incoming.score !== undefined && incoming.score !== null ? incoming.score : prev?.score ?? null,
+      class_avg:
+        incoming.class_avg !== undefined && incoming.class_avg !== null
+          ? incoming.class_avg
+          : prev?.class_avg ?? null,
       level: incoming.level !== undefined && incoming.level !== null ? incoming.level : prev?.level ?? null,
       class_rank:
         incoming.class_rank !== undefined && incoming.class_rank !== null
@@ -265,6 +269,7 @@ async function replaceSubjectScores(
       exam_id: examId,
       subject: s.subject,
       score: v.score ?? null,
+      class_avg: v.class_avg ?? null,
       level: v.level ?? null,
       class_rank: v.class_rank ?? null,
       grade_rank: v.grade_rank ?? null,

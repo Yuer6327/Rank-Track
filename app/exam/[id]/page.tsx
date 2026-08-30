@@ -4,7 +4,7 @@ import { RankChart } from "@/components/rank-chart";
 import { enabledSubjects } from "@/lib/analysis";
 import { getExam, getSettings, listExams, listImages, listNotes } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
-import { assignedScore, formatRank, rankDelta } from "@/lib/utils";
+import { assignedScore, formatRank, formatScore, rankDelta } from "@/lib/utils";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 
@@ -62,7 +62,8 @@ export default async function ExamPage({ params }: { params: Promise<{ id: strin
               <div className="kpi" key={s}>
                 <span>
                   {s} {sc?.score ?? sc?.level ?? "—"}
-                  {sc?.level ? ` / 赋分 ${assignedScore(sc.level)}` : ""} · 班 {formatRank(sc?.class_rank ?? null)} · 年{" "}
+                  {sc?.level ? ` / 赋分 ${assignedScore(sc.level)}` : ""} · 均 {formatScore(sc?.class_avg ?? null)} · 班{" "}
+                  {formatRank(sc?.class_rank ?? null)} · 年{" "}
                   {formatRank(sc?.grade_rank ?? null)} · 市 {formatRank(sc?.city_rank ?? null)}
                 </span>
                 <span>{fmtDelta(rankDelta(sc?.grade_rank ?? null, old?.grade_rank ?? null))}</span>

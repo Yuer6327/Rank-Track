@@ -109,6 +109,7 @@ export type SubjectScore = {
   user_id: string;
   subject: Subject;
   score: number | null;
+  class_avg: number | null;
   level: Level | null;
   class_rank: number | null;
   grade_rank: number | null;

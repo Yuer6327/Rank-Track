@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { enabledSubjects } from "@/lib/analysis";
 import { LEVELS, MAJOR_SUBJECTS, type Exam, type Settings, type Subject, type SubjectScore } from "@/lib/types";
-import { sanitizeDigits, sanitizeRank, sanitizeScoreFields } from "@/lib/validate";
+import { sanitizeDecimal, sanitizeDigits, sanitizeRank, sanitizeScoreFields } from "@/lib/validate";
 
 type CellKey =
   | "exam_name"
@@ -12,7 +12,10 @@ type CellKey =
   | "total_class_rank"
   | "total_grade_rank"
   | "total_city_rank"
-  | `${Subject}:${"score" | "level" | "class_rank" | "grade_rank" | "city_rank"}`;
+  | `${Subject}:${"score" | "class_avg" | "level" | "class_rank" | "grade_rank" | "city_rank"}`;
+
+// 分数/班均允许小数，其余数值列只收整数
+const DECIMAL_KEYS = new RegExp(`:(score|class_avg)$`);
 
 function blankExam(): Exam {
   return {
@@ -40,13 +43,14 @@ function patchScore(exam: Exam, subject: Subject, field: keyof SubjectScore, val
           user_id: exam.user_id,
           subject,
           score: null,
+          class_avg: null,
           level: null,
           class_rank: null,
           grade_rank: null,
           city_rank: null,
         };
   if (field === "level") cur.level = (value || null) as SubjectScore["level"];
-  else if (field === "score") cur.score = value === "" ? null : Number(value);
+  else if (field === "score" || field === "class_avg") cur[field] = value === "" ? null : Number(value);
   else if (field === "class_rank" || field === "grade_rank" || field === "city_rank") {
     cur[field] = value === "" ? null : Number(value);
   }
@@ -56,16 +60,19 @@ function patchScore(exam: Exam, subject: Subject, field: keyof SubjectScore, val
 }
 
 function applyCell(exam: Exam, key: CellKey, value: string): Exam {
-  // 数值列输入时只放行数字：防负号、小数点、字母和超长输入
+  // 数值列输入时过滤：分数/班均放行小数点，排名只放行数字
   if (key !== "exam_name" && key !== "exam_date" && !key.endsWith(":level")) {
-    value = sanitizeDigits(value);
+    value = DECIMAL_KEYS.test(key) ? sanitizeDecimal(value) : sanitizeDigits(value);
   }
   if (key === "exam_name") return { ...exam, exam_name: value };
   if (key === "exam_date") return { ...exam, exam_date: value };
   if (key === "total_class_rank") return { ...exam, total_class_rank: value === "" ? null : Number(value) };
   if (key === "total_grade_rank") return { ...exam, total_grade_rank: value === "" ? null : Number(value) };
   if (key === "total_city_rank") return { ...exam, total_city_rank: value === "" ? null : Number(value) };
-  const [subject, field] = key.split(":") as [Subject, "score" | "level" | "class_rank" | "grade_rank" | "city_rank"];
+  const [subject, field] = key.split(":") as [
+    Subject,
+    "score" | "class_avg" | "level" | "class_rank" | "grade_rank" | "city_rank",
+  ];
   return patchScore(exam, subject, field, value);
 }
 
@@ -84,11 +91,16 @@ export function DataGrid({ exams, settings }: { exams: Exam[]; settings: Setting
     const cols: { key: CellKey; label: string }[] = [
       { key: "exam_name", label: "考试名称" },
       { key: "exam_date", label: "日期" },
+      // 总分列靠左，免横向滚动即可查看
+      { key: "total_class_rank", label: "总分班排" },
+      { key: "total_grade_rank", label: "总分年排" },
+      { key: "total_city_rank", label: "总分市排" },
     ];
     for (const s of subjects) {
       if ((MAJOR_SUBJECTS as readonly string[]).includes(s)) {
         cols.push(
           { key: `${s}:score`, label: `${s}分数` },
+          { key: `${s}:class_avg`, label: `${s}班均` },
           { key: `${s}:class_rank`, label: `${s}班排` },
           { key: `${s}:grade_rank`, label: `${s}年排` },
           { key: `${s}:city_rank`, label: `${s}市排` },
@@ -96,17 +108,13 @@ export function DataGrid({ exams, settings }: { exams: Exam[]; settings: Setting
       } else {
         cols.push(
           { key: `${s}:level`, label: `${s}等级` },
+          { key: `${s}:class_avg`, label: `${s}班均` },
           { key: `${s}:class_rank`, label: `${s}班排` },
           { key: `${s}:grade_rank`, label: `${s}年排` },
           { key: `${s}:city_rank`, label: `${s}市排` },
         );
       }
     }
-    cols.push(
-      { key: "total_class_rank", label: "总分班排" },
-      { key: "total_grade_rank", label: "总分年排" },
-      { key: "total_city_rank", label: "总分市排" },
-    );
     return cols;
   }, [subjects]);
 
@@ -116,7 +124,10 @@ export function DataGrid({ exams, settings }: { exams: Exam[]; settings: Setting
     if (key === "total_class_rank") return exam.total_class_rank?.toString() ?? "";
     if (key === "total_grade_rank") return exam.total_grade_rank?.toString() ?? "";
     if (key === "total_city_rank") return exam.total_city_rank?.toString() ?? "";
-    const [subject, field] = key.split(":") as [Subject, "score" | "level" | "class_rank" | "grade_rank" | "city_rank"];
+    const [subject, field] = key.split(":") as [
+      Subject,
+      "score" | "class_avg" | "level" | "class_rank" | "grade_rank" | "city_rank",
+    ];
     const sc = exam.subject_scores?.find((s) => s.subject === subject);
     const v = sc?.[field];
     return v == null ? "" : String(v);
@@ -158,7 +169,7 @@ export function DataGrid({ exams, settings }: { exams: Exam[]; settings: Setting
     if (!exam.id && data.exam?.id) {
       setRows((prev) => prev.map((r, i) => (i === ri ? data.exam : r)));
     }
-    setMsg(fixed ? "已自动修正无效输入（分数 0–150 整数，排名为正整数）并保存" : "已保存");
+    setMsg(fixed ? "已自动修正无效输入（分数/班均 0–150 可含小数，排名为正整数）并保存" : "已保存");
     router.refresh();
   }
 
@@ -235,7 +246,13 @@ export function DataGrid({ exams, settings }: { exams: Exam[]; settings: Setting
                     ) : (
                       <input
                         value={getValue(exam, c.key)}
-                        inputMode={c.key !== "exam_name" && c.key !== "exam_date" ? "numeric" : undefined}
+                        inputMode={
+                          c.key !== "exam_name" && c.key !== "exam_date"
+                            ? DECIMAL_KEYS.test(c.key)
+                              ? "decimal"
+                              : "numeric"
+                            : undefined
+                        }
                         onChange={(e) =>
                           setRows((prev) => prev.map((row, i) => (i === ri ? applyCell(row, c.key, e.target.value) : row)))
                         }

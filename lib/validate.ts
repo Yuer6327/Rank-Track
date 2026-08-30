@@ -29,8 +29,11 @@ export function sanitizeDigits(value: string, maxLen = 7): string {
 }
 
 // 输入时过滤：分数类允许小数点（至多一位小数点、两位小数）
+// 中文输入法的全角句号（。／．）归一化为小数点，避免中文状态下无法输入小数
 export function sanitizeDecimal(value: string, maxLen = 7, maxDecimals = 2): string {
-  let v = value.replace(/[^\d.]/g, "");
+  let v = value
+    .replace(/[。．]/g, ".")
+    .replace(/[^\d.]/g, "");
   const dot = v.indexOf(".");
   if (dot >= 0) {
     const intPart = v.slice(0, dot);

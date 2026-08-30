@@ -29,6 +29,19 @@ export function ExamCard({
 }) {
   const [open, setOpen] = useState(false);
   const subjects = enabledSubjects(settings);
+  const totals = [
+    { label: "班级", rank: exam.total_class_rank, prevRank: prev?.total_class_rank },
+    { label: "年级", rank: exam.total_grade_rank, prevRank: prev?.total_grade_rank },
+    { label: "全市", rank: exam.total_city_rank, prevRank: prev?.total_city_rank },
+  ];
+  const visibleTotals = totals.filter((t) => t.rank != null);
+  const subjectRows = subjects.flatMap((s) => {
+    const cur = exam.subject_scores?.find((x) => x.subject === s);
+    if (!cur) return [];
+    const hasValue = cur.score != null || cur.level != null || cur.grade_rank != null || cur.class_rank != null || cur.city_rank != null;
+    return hasValue ? [{ subject: s, score: cur }] : [];
+  });
+  const hasData = visibleTotals.length > 0 || subjectRows.length > 0;
   return (
     <article className="card">
       <div className="row" style={{ justifyContent: "space-between" }}>
@@ -40,38 +53,41 @@ export function ExamCard({
           详情
         </Link>
       </div>
-      <div className="kpi">
-        <span>班级 {formatRank(exam.total_class_rank)}</span>
-        <Delta value={rankDelta(exam.total_class_rank, prev?.total_class_rank)} />
-      </div>
-      <div className="kpi">
-        <span>年级 {formatRank(exam.total_grade_rank)}</span>
-        <Delta value={rankDelta(exam.total_grade_rank, prev?.total_grade_rank)} />
-      </div>
-      <div className="kpi">
-        <span>全市 {formatRank(exam.total_city_rank)}</span>
-        <Delta value={rankDelta(exam.total_city_rank, prev?.total_city_rank)} />
-      </div>
-      {open ? (
-        <div className="section">
-          {subjects.map((s) => {
-            const cur = exam.subject_scores?.find((x) => x.subject === s);
-            const old = prev?.subject_scores?.find((x) => x.subject === s);
-            return (
-              <div className="kpi" key={s}>
-                <span>
-                  {s} {cur?.score ?? cur?.level ?? "—"}
-                  {cur?.level ? `（${assignedScore(cur.level)}）` : ""} · 年级 {formatRank(cur?.grade_rank ?? null)}
-                </span>
-                <Delta value={rankDelta(cur?.grade_rank ?? null, old?.grade_rank ?? null)} />
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
-      <button className="btn ghost mt-sm" type="button" onClick={() => setOpen((v) => !v)}>
-        {open ? "收起" : "展开各科"}
-      </button>
+      {!hasData ? (
+        <p className="empty">当前暂无数据</p>
+      ) : (
+        <>
+          {visibleTotals.map((t) => (
+            <div className="kpi" key={t.label}>
+              <span>
+                {t.label} {formatRank(t.rank)}
+              </span>
+              <Delta value={rankDelta(t.rank, t.prevRank)} />
+            </div>
+          ))}
+          {open ? (
+            <div className="section">
+              {subjectRows.map(({ subject: s, score: cur }) => {
+                const old = prev?.subject_scores?.find((x) => x.subject === s);
+                return (
+                  <div className="kpi" key={s}>
+                    <span>
+                      {s} {cur.score ?? cur.level ?? "—"}
+                      {cur.level ? `（${assignedScore(cur.level)}）` : ""} · 年级 {formatRank(cur.grade_rank ?? null)}
+                    </span>
+                    <Delta value={rankDelta(cur.grade_rank ?? null, old?.grade_rank ?? null)} />
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+          {subjectRows.length ? (
+            <button className="btn ghost mt-sm" type="button" onClick={() => setOpen((v) => !v)}>
+              {open ? "收起" : "展开各科"}
+            </button>
+          ) : null}
+        </>
+      )}
     </article>
   );
 }

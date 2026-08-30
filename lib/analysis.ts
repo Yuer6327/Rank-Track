@@ -265,7 +265,7 @@ export function summaries(analysis: Omit<RuleAnalysis, "summaries">): string[] {
   if (topCorr && topCorr.coefficient != null) {
     lines.push(`${topCorr.subject} 与总分排名${topCorr.label}（r=${topCorr.coefficient.toFixed(2)}）`);
   }
-  const goal = analysis.goals[0];
+  const goal = analysis.goals.find((row) => row.gapText && row.gapText !== "当前暂无数据");
   if (goal?.gapText) lines.push(`${goal.label}：${goal.gapText}`);
   if (!lines.length) lines.push("数据还不多，先录入几次考试就能看到趋势与分析。");
   return lines.slice(0, 3);

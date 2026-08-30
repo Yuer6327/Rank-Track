@@ -17,7 +17,7 @@ export default async function AnalysisPage() {
           <h1>分析</h1>
         </div>
         <AnalysisBoard analysis={analysis} />
-        <AiPanel />
+        <AiPanel userId={user.id} />
       </div>
     </PageTransition>
   );

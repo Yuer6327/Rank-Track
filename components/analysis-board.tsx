@@ -131,9 +131,18 @@ type LocalChat = {
   updatedAt: number;
 };
 
-const CHATS_KEY = "rt_ai_chats";
-const ACTIVE_KEY = "rt_ai_chat_active";
+const LEGACY_CHATS_KEY = "rt_ai_chats";
+const LEGACY_ACTIVE_KEY = "rt_ai_chat_active";
 const MAX_CHATS = 30;
+
+// 每个账号各自一份聊天记录，避免同浏览器多账号串数据
+function chatsKey(userId: string) {
+  return `rt_ai_chats_${userId}`;
+}
+
+function activeKey(userId: string) {
+  return `rt_ai_chat_active_${userId}`;
+}
 
 function newId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -145,12 +154,26 @@ function freshChat(): LocalChat {
   return { id: newId(), title: "新对话", messages: [], updatedAt: Date.now() };
 }
 
-function loadStore(): { chats: LocalChat[]; activeId: string } {
+function loadStore(userId: string): { chats: LocalChat[]; activeId: string } {
+  const key = chatsKey(userId);
+  // 旧版本记录存在全局 key 下，首次加载时迁移到当前账号名下
+  let raw = localStorage.getItem(key);
+  if (raw == null) {
+    const legacy = localStorage.getItem(LEGACY_CHATS_KEY);
+    if (legacy != null) {
+      localStorage.setItem(key, legacy);
+      const legacyActive = localStorage.getItem(LEGACY_ACTIVE_KEY);
+      if (legacyActive) localStorage.setItem(activeKey(userId), legacyActive);
+      localStorage.removeItem(LEGACY_CHATS_KEY);
+      localStorage.removeItem(LEGACY_ACTIVE_KEY);
+      raw = legacy;
+    }
+  }
   let chats: LocalChat[] = [];
   try {
-    const raw = JSON.parse(localStorage.getItem(CHATS_KEY) ?? "[]") as LocalChat[];
-    if (Array.isArray(raw)) {
-      chats = raw.filter((c) => c && typeof c.id === "string" && Array.isArray(c.messages));
+    const parsed = JSON.parse(raw ?? "[]") as LocalChat[];
+    if (Array.isArray(parsed)) {
+      chats = parsed.filter((c) => c && typeof c.id === "string" && Array.isArray(c.messages));
     }
   } catch {
     // 忽略损坏的本地数据
@@ -159,7 +182,7 @@ function loadStore(): { chats: LocalChat[]; activeId: string } {
     const fresh = freshChat();
     return { chats: [fresh], activeId: fresh.id };
   }
-  const saved = localStorage.getItem(ACTIVE_KEY);
+  const saved = localStorage.getItem(activeKey(userId));
   const activeId = saved && chats.some((c) => c.id === saved) ? saved : chats[0].id;
   return { chats, activeId };
 }
@@ -183,25 +206,25 @@ function PlusIcon() {
   );
 }
 
-export function AiPanel() {
+export function AiPanel({ userId }: { userId: string }) {
   const [store, setStore] = useState<{ chats: LocalChat[]; activeId: string } | null>(null);
   const [input, setInput] = useState("");
   const [full, setFull] = useState(false);
   const [busy, setBusy] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
-  // 聊天记录仅存浏览器 localStorage
+  // 聊天记录仅存浏览器 localStorage，按账号分开
   useEffect(() => {
     // 必须挂载后再读取，避免 SSR 水合不一致
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setStore(loadStore());
-  }, []);
+    setStore(loadStore(userId));
+  }, [userId]);
 
   useEffect(() => {
     if (!store) return;
-    localStorage.setItem(CHATS_KEY, JSON.stringify(store.chats.slice(0, MAX_CHATS)));
-    localStorage.setItem(ACTIVE_KEY, store.activeId);
-  }, [store]);
+    localStorage.setItem(chatsKey(userId), JSON.stringify(store.chats.slice(0, MAX_CHATS)));
+    localStorage.setItem(activeKey(userId), store.activeId);
+  }, [store, userId]);
 
   const chat = store?.chats.find((c) => c.id === store.activeId) ?? null;
   const messages = chat?.messages ?? [];

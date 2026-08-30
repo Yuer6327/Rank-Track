@@ -16,6 +16,10 @@ type CellKey =
 
 // 分数/班均允许小数，其余数值列只收整数
 const DECIMAL_KEYS = new RegExp(`:(score|class_avg)$`);
+// 失焦自动保存的节流间隔
+const SAVE_THROTTLE_MS = 3000;
+// 模块级取时：避免组件作用域内直接调用 Date.now 触发纯度检查
+const nowMs = () => Date.now();
 
 type FieldRow = { key: CellKey; label: string };
 
@@ -89,6 +93,10 @@ export function DataGrid({ exams, settings }: { exams: Exam[]; settings: Setting
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const tableRef = useRef<HTMLTableElement>(null);
+  // 失焦保存节流：3 秒最多保存一次，未保存的列记入 dirty 集合
+  const dirtyRef = useRef<Set<number>>(new Set());
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSaveAtRef = useRef(0);
 
   // 转置布局：一次考试一列，字段做行；总分三行置顶
   const fieldRows = useMemo<FieldRow[]>(() => {
@@ -136,8 +144,9 @@ export function DataGrid({ exams, settings }: { exams: Exam[]; settings: Setting
     return v == null ? "" : String(v);
   }
 
-  async function saveRow(ci: number) {
+  async function doSave(ci: number) {
     const exam = rowsRef.current[ci];
+    dirtyRef.current.delete(ci);
     if (!exam || !exam.exam_name.trim() || !exam.exam_date) return;
     setBusy(true);
     const payload = {
@@ -176,7 +185,53 @@ export function DataGrid({ exams, settings }: { exams: Exam[]; settings: Setting
     router.refresh();
   }
 
+  function flushSaves() {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    const targets = [...dirtyRef.current];
+    dirtyRef.current.clear();
+    lastSaveAtRef.current = nowMs();
+    targets.forEach((ci) => void doSave(ci));
+  }
+
+  function scheduleSave(ci: number) {
+    dirtyRef.current.add(ci);
+    if (saveTimerRef.current) return;
+    const wait = Math.max(0, SAVE_THROTTLE_MS - (nowMs() - lastSaveAtRef.current));
+    saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = null;
+      flushSaves();
+    }, wait);
+  }
+
+  function manualSave() {
+    if (!dirtyRef.current.size) {
+      setMsg("没有需要保存的修改");
+      return;
+    }
+    flushSaves();
+  }
+
+  // 卸载前把未落库的改动立即保存，避免 3 秒窗口内的编辑丢失
+  const doSaveRef = useRef(doSave);
+  useEffect(() => {
+    doSaveRef.current = doSave;
+  });
+  useEffect(
+    () => () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      dirtyRef.current.forEach((ci) => void doSaveRef.current(ci));
+      dirtyRef.current.clear();
+    },
+    [],
+  );
+
   async function removeColumn(exam: Exam, ci: number) {
+    // 被删列不再待存；其余列先按删除前的索引立即落库，避免位移后错存
+    dirtyRef.current.delete(ci);
+    if (dirtyRef.current.size) flushSaves();
     if (exam.id) await fetch(`/api/exams/${exam.id}`, { method: "DELETE" });
     setRows((prev) => prev.filter((_, i) => i !== ci));
     router.refresh();
@@ -225,7 +280,7 @@ export function DataGrid({ exams, settings }: { exams: Exam[]; settings: Setting
   function cellProps(r: number, c: number) {
     return {
       "data-cell": `${c}:${r}`,
-      onBlur: () => saveRow(c),
+      onBlur: () => scheduleSave(c),
       onKeyDown: (e: React.KeyboardEvent) => onCellKeyDown(e, r, c),
     };
   }
@@ -239,6 +294,9 @@ export function DataGrid({ exams, settings }: { exams: Exam[]; settings: Setting
         <a className="btn" href="/api/template">
           下载模板
         </a>
+        <button className="btn" type="button" onClick={manualSave} disabled={busy}>
+          手动保存
+        </button>
         <span className="muted">
           {msg}
           {busy ? " 保存中…" : ""}

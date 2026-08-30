@@ -376,11 +376,25 @@ table.data td input:focus {
 }
 
 /* 转置成绩表：一次考试一列，字段做行，行头吸附在左 */
+table.data.transposed {
+  width: auto;
+  min-width: 0;
+}
+
+/* 列宽上下限：数据少时不随屏幕拉伸，数据多时横向滚动条兜底 */
+table.data.transposed th,
+table.data.transposed td {
+  width: 120px;
+}
+
 table.data.transposed th {
   position: sticky;
   left: 0;
   top: auto;
   z-index: 1;
+  width: auto;
+  min-width: 88px;
+  max-width: 150px;
 }
 
 table.data.transposed td select {

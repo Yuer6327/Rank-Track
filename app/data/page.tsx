@@ -15,7 +15,7 @@ export default async function DataPage() {
         <div className="page-head">
           <div>
             <h1>数据表格</h1>
-            <p className="muted">点击单元格编辑，失焦自动保存，支持粘贴</p>
+            <p className="muted">点击单元格编辑，改动每 3 秒自动保存一次，支持粘贴，也可手动保存</p>
           </div>
         </div>
         <section className="card">

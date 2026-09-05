@@ -1,0 +1,21 @@
+name: Keep Supabase Alive
+
+on:
+  schedule:
+    # 每天 01:00 / 13:00 UTC(北京时间 09:00 / 21:00)
+    - cron: '0 1,13 * * *'
+  workflow_dispatch:
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run keep-alive script
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: node scripts/keep-alive.mjs
